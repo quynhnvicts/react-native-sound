@@ -6,6 +6,9 @@
     #import <React/RCTUtils.h>
 #endif
 
+static NSString *KEY_ROUTE_CHANGE = @"KEY_ROUTE_CHANGE";
+static NSString *KEY_INTERRUPTION = @"KEY_INTERRUPTION";
+
 @implementation RNSound {
   NSMutableDictionary* _playerPool;
   NSMutableDictionary* _callbackPool;
@@ -13,29 +16,66 @@
 
 @synthesize _key = _key;
 
+- (void)audioHandleInterruption:(NSNotification *)notification {
+    NSDictionary* userInfo = notification.userInfo;
+    AVAudioSessionInterruptionType type = [userInfo[AVAudioSessionInterruptionTypeKey] integerValue];
+    AVAudioPlayer* player = [self playerForKey:self._key];
+    if (type == AVAudioSessionInterruptionTypeBegan) {
+        if (player) {
+            [player pause];
+            
+            // fix error: Illegal callback invocation from native module
+            NSString *key = KEY_INTERRUPTION;
+            @synchronized(key) {
+                RCTResponseSenderBlock callback = [[self callbackPool] objectForKey:key];
+                if (callback) {
+                    callback(@[@(0)]);
+                    [[self callbackPool] removeObjectForKey:key];
+                }
+            }
+        }
+    }
+    else if (type == AVAudioSessionInterruptionTypeEnded) {
+        AVAudioSessionInterruptionOptions options = [userInfo[AVAudioSessionInterruptionOptionKey] integerValue];
+        if (player && options == AVAudioSessionInterruptionOptionShouldResume) {
+            //[player play];    //don't auto resume
+        }
+    }
+}
+
 - (void)audioSessionChangeObserver:(NSNotification *)notification{
     NSDictionary* userInfo = notification.userInfo;
     AVAudioSessionRouteChangeReason audioSessionRouteChangeReason = [userInfo[@"AVAudioSessionRouteChangeReasonKey"] longValue];
-    AVAudioSessionInterruptionType audioSessionInterruptionType   = [userInfo[@"AVAudioSessionInterruptionTypeKey"] longValue];
     AVAudioPlayer* player = [self playerForKey:self._key];
     if (audioSessionRouteChangeReason == AVAudioSessionRouteChangeReasonNewDeviceAvailable){
         if (player) {
             [player play];
+            
+            // fix error: Illegal callback invocation from native module
+            NSString *key = KEY_ROUTE_CHANGE;
+            @synchronized(key) {
+                RCTResponseSenderBlock callback = [[self callbackPool] objectForKey:key];
+                if (callback) {
+                    callback(@[@(1)]);
+                    [[self callbackPool] removeObjectForKey:key];
+                }
+            }
         }
     }
-    if (audioSessionInterruptionType == AVAudioSessionInterruptionTypeEnded){
-        if (player && player.isPlaying) {
-            [player play];
-        }
-    }
+    
     if (audioSessionRouteChangeReason == AVAudioSessionRouteChangeReasonOldDeviceUnavailable){
         if (player) {
             [player pause];
-        }
-    }
-    if (audioSessionInterruptionType == AVAudioSessionInterruptionTypeBegan){
-        if (player) {
-            [player pause];
+            
+            // fix error: Illegal callback invocation from native module
+            NSString *key = KEY_ROUTE_CHANGE;
+            @synchronized(key) {
+                RCTResponseSenderBlock callback = [[self callbackPool] objectForKey:key];
+                if (callback) {
+                    callback(@[@(0)]);
+                    [[self callbackPool] removeObjectForKey:key];
+                }
+            }
         }
     }
 }
@@ -305,7 +345,17 @@ RCT_EXPORT_METHOD(getCurrentTime:(nonnull NSNumber*)key
 {
     return YES;
 }
+
 - (void)setOnPlay:(BOOL)isPlaying forPlayerKey:(nonnull NSNumber*)playerKey {
   [self sendEventWithName:@"onPlayChange" body:@{@"isPlaying": isPlaying ? @YES : @NO, @"playerKey": playerKey}];
 }
+
+RCT_EXPORT_METHOD(sessionRouteChangedWithCallback:(RCTResponseSenderBlock)callback) {
+    [[self callbackPool] setObject:[callback copy] forKey:KEY_ROUTE_CHANGE];
+}
+
+RCT_EXPORT_METHOD(interruptSessionWithCallback:(RCTResponseSenderBlock)callback) {
+    [[self callbackPool] setObject:[callback copy] forKey:KEY_INTERRUPTION];
+}
+
 @end

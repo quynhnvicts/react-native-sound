@@ -274,6 +274,22 @@ Sound.setMode = function(value) {
   }
 };
 
+// 05/31/2018: hanlde session route changed
+Sound.prototype.sessionRouteChanged = function(callback) {
+  if (this._loaded) {
+    RNSound.sessionRouteChangedWithCallback(callback);
+  }
+  return this;
+};
+
+// 05/31/2018: hanlde session interrupt
+Sound.prototype.interruptSession = function(callback) {
+  if (this._loaded) {
+    RNSound.interruptSessionWithCallback(callback);
+  }
+  return this;
+};
+
 Sound.MAIN_BUNDLE = RNSound.MainBundlePath;
 Sound.DOCUMENT = RNSound.NSDocumentDirectory;
 Sound.LIBRARY = RNSound.NSLibraryDirectory;

@@ -173,6 +173,18 @@ declare class Sound {
    * Whether the player is playing or not.
    */
   isPlaying(): boolean
+
+  /**
+   * 
+   * @param cb - Optional callback function that gets called when the sound has been pause/play by session route changed.
+   */
+  sessionRouteChanged(cb?: (isPlaying: boolean) => void): void
+
+  /**
+   * 
+   * @param cb - Optional callback function that gets called when the sound has been pause by interruption.
+   */
+  interruptSession(cb?: (isPlaying: boolean) => void): void
 }
 
 export = Sound;
